@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Testing and coverage
+coverage/
+.vitest/
+
+# SQLite databases & temp files
+*.db
+*.db-wal
+*.db-shm
+tmp/
+.test-tmp/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# AI tool configuration and session files (Strict)
+CLAUDE.md
+.claude/
+.cursor/
+.gemini/
+AGENTS.md
+.agents/
+.copilot/

@@ -1,0 +1,30 @@
+{
+  "name": "worktide",
+  "version": "0.1.0",
+  "description": "CLI to make git worktrees immediately runnable and isolated",
+  "type": "module",
+  "main": "src/cli.js",
+  "bin": {
+    "worktide": "./bin/worktide.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Harsh Vats <h.harshvats@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "commander": "^13.1.0",
+    "execa": "^9.5.2"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "tinypool": "^2.2.0"
+  }
+}
