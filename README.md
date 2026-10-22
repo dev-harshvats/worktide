@@ -1,128 +1,166 @@
-# WorkTide 🌊
+<p align="center">
+  <img src=".github/assets/hero.png" alt="WorkTide — Instantly runnable isolated Git worktrees" width="860">
+</p>
 
-> **Instantly runnable, isolated Git worktrees for parallel branch development.**
+<p align="center">
+  <a href="https://github.com/dev-harshvats/worktide/actions/workflows/ci.yml">
+    <img src="https://github.com/dev-harshvats/worktide/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-68a063?logo=node.js&logoColor=white" alt="Node.js ≥ 18">
+  <img src="https://img.shields.io/badge/sqlite-WAL%20mode-003B57?logo=sqlite&logoColor=white" alt="SQLite WAL">
+  <img src="https://img.shields.io/badge/tests-55%20passing-a6e3a1?logo=vitest&logoColor=white" alt="55 tests passing">
+  <img src="https://img.shields.io/badge/license-MIT-cba6f7" alt="MIT License">
+</p>
 
-WorkTide is a fast, developer-friendly Node.js CLI tool built to make git worktrees immediately productive and isolated. When developers or parallel workflows spin up git worktrees, fresh worktrees are inert—they lack dependencies (`node_modules`), miss environment configurations (`.env`), share state unsafely, and collide on default dev-server ports.
-
-WorkTide eliminates this friction with automatic dependency linking, collision-free port allocation, and automated lifecycle management.
-
----
-
-## ⚡ Features
-
-- 🔗 **Automatic Dependency Linking:** Detects root `node_modules` and symlinks it into new worktrees instantly.
-- 🔒 **Conflict-Free Port Allocation:** Allocates a dedicated 10-port block (e.g. `3000-3009`, `3010-3019`) per worktree via a centralized SQLite registry.
-- ⚙️ **Deterministic Environment Injection:** Writes managed `PORT` and `PORT_END` variables into `.env.local` without touching custom user keys.
-- 📊 **Real-time Status Dashboard:** Inspect active worktrees, assigned ports, and process liveness (`live` / `down`) in a clean terminal table or `--json`.
-- 🧹 **Safe Graceful Teardown:** Inspects only allocated ports, terminates lingering listeners (`SIGTERM` -> `SIGKILL`), verifies git cleanliness, and cleans up worktrees.
-- 🩺 **Self-Healing Doctor:** Detects and auto-repairs orphaned allocations, broken symlinks, and stale git locks with `worktide doctor --fix`.
-
----
-
-## 📦 Requirements
-
-- **Node.js:** `>= 18.0.0`
-- **Git:** `>= 2.20` (supporting `git worktree`)
-- **OS:** Linux or macOS (Windows not officially supported in v1)
+<p align="center">
+  <b>Your agent creates the worktree. WorkTide makes it run.</b><br>
+  Dependencies linked. <code>.env</code> propagated. A dedicated port range. Zero config. Zero collisions.
+</p>
 
 ---
 
-## 🚀 Quick Start
+## Why
 
-### Installation
+AI coding agents — Claude Code, Cursor — spin up git worktrees for parallel branch work. But a fresh worktree is inert:
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/worktide.git
-cd worktide
-
-# Install dependencies
-npm install
-
-# Link CLI locally
-npm link
+git worktree add ../feature-auth feature/auth && cd ../feature-auth
+# node_modules? gone.   .env? gone.
+# dev-server port? same as main — EADDRINUSE on every npm run dev.
 ```
 
-### Basic Commands
+**WorkTide is the one command that makes a fresh worktree immediately runnable** — dependencies linked, environment copied, a unique 10-port range injected into `.env.local`. No reinstalls. No port collisions. No shared state.
+
+---
+
+## Quickstart
 
 ```bash
-# 1. Start a fully provisioned worktree for a branch
-worktide start feature/auth
+# Install globally or link in your repo
+npm install -g worktide
 
-# 2. View all active worktrees and their allocated ports
+# Start a fully provisioned, isolated worktree
+worktide start feature/auth
+# ✓ Symlinked node_modules from primary checkout
+# ✓ Propagated .env, .env.development
+# ✓ PORT=3010, PORT_END=3019 → .env.local managed block
+
+# cd into it and run your dev server — it's already wired up
+cd ../myapp-feature-auth && npm run dev
+
+# See all active worktrees and their port liveness
 worktide status
 
-# 3. Check and repair system health
-worktide doctor --fix
-
-# 4. Safely tear down a worktree when finished
+# Tear down cleanly when the branch is merged
 worktide done feature/auth
 ```
 
 ---
 
-## 🛠️ CLI Reference
+## Status dashboard
 
-| Command | Description |
-|---|---|
-| `worktide start <branch>` | Create a git worktree, symlink dependencies, copy `.env*`, and allocate a 10-port block. |
-| `worktide status [--json] [--all]` | List active worktrees, paths, ports, and server liveness status. |
-| `worktide done <branch> [--force]` | Terminate active processes on allocated ports, remove worktree, and release ports. |
-| `worktide doctor [--fix]` | Inspect and heal inconsistencies between filesystem, git state, and registry. |
+<p align="center">
+  <img src=".github/assets/status-demo.png" alt="worktide status output" width="720">
+</p>
 
----
-
-## 🧩 How It Works
-
-```
-                        worktide start <branch>
-                                   │
-          ┌────────────────────────┼────────────────────────┐
-          ▼                        ▼                        ▼
- 1. Symlink Dependencies   2. Allocate Ports        3. Inject Config
-    root/node_modules        SQLite Registry           .env.local
-           │                 (Port: 3010-3019)       PORT=3010
-           ▼                       │                 PORT_END=3019
-    worktree/node_modules          ▼                       │
-                             lsof verification             ▼
-                                   └───────────────► Fully Isolated Worktree
-```
+`worktide status` shows every active worktree, its allocated port block, and real-time socket liveness — whether your dev server is actually running (`live`) or stopped (`down`).
 
 ---
 
-## 📁 Repository Structure
+## Environment isolation
+
+Each worktree receives a unique, collision-free 10-port block registered in a centralized SQLite registry:
+
+```bash
+worktide start feat/auth       # PORT 3000-3009
+worktide start feat/checkout   # PORT 3010-3019
+worktide start fix/navbar      # PORT 3020-3029
+```
+
+Values land in a **managed block** in `.env.local` alongside — never overwriting — your own secrets:
+
+```dotenv
+STRIPE_SECRET_KEY=sk_live_…      # your line, always preserved
+
+# >>> worktide managed >>>
+PORT=3010
+PORT_END=3019
+# <<< worktide managed <<<
+```
+
+- **Gap-reuse allocator:** When a worktree is torn down, its port range is released and reused by the next allocation — ports stay low and predictable, never growing unbounded toward `:65535`.
+- **OS socket probing:** Before reserving a candidate range, WorkTide probes each port via `net.createServer`. If an external process (Docker, Postgres) already owns it, WorkTide skips to the next free block automatically.
+- **Concurrency-safe:** The SQLite registry runs in **WAL mode** with `PRAGMA foreign_keys = ON`. Parallel CLI invocations can't double-allocate the same ports — verified in a 10-worker concurrent stress test.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `worktide start <branch>` | Create a worktree, symlink `node_modules`, copy `.env*`, allocate ports, write `.env.local`. Atomic rollback on any failure. |
+| `worktide status [--json] [-a]` | Tabular view of all active worktrees — branch, port range, socket liveness, path. |
+| `worktide done <branch> [--force]` | Verify git cleanliness, kill processes on allocated ports, remove worktree, release ports. |
+| `worktide doctor [--fix]` | Detect broken symlinks, orphaned registry records, and stale git locks. Auto-repair with `--fix`. |
+
+---
+
+## Atomic rollback
+
+If `worktide start` fails at any step — git error, full disk, bad branch name — it unwinds every side-effect in reverse order:
+
+1. Delete propagated `.env*` files
+2. `git worktree remove --force`
+3. Release port allocation from SQLite
+4. Mark worktree record as `removed`
+
+No orphaned directories. No leaked port reservations. No partial state.
+
+---
+
+## Self-healing doctor
+
+Deleted a worktree manually with `rm -rf`? Ran `git worktree remove` without telling WorkTide? Run:
+
+```bash
+worktide doctor       # see what's inconsistent
+worktide doctor --fix # repair automatically
+```
+
+Detects and repairs:
+- Broken `node_modules` symlinks pointing to missing targets
+- Orphaned registry records with no matching directory or git entry
+- Stale `.git/index.lock` files left by crashed git processes
+
+---
+
+## Repository structure
 
 ```
 worktide/
-├── bin/                 # CLI executable entrypoint
+├── bin/               ← CLI executable entrypoint (shebang)
 ├── src/
-│   ├── cli.js           # Commander command definitions
-│   ├── commands/        # CLI command handlers (start, status, done, doctor)
-│   ├── db/              # SQLite registry and migrations
-│   ├── services/        # Git, port allocator, env manager, process supervisor
-│   └── utils/           # Structured errors, logger, slug generator
-├── docs/                # System architecture, SRS, and design documentation
-├── examples/            # Example workflows and configurations
-├── test/                # Vitest automated test suite
-├── CHANGELOG.md         # Release history and unreleased features
-├── ROADMAP.md           # Milestone roadmap and delivery tracking
-└── LICENSE              # MIT License
+│   ├── cli.js         ← Commander definitions & error boundary
+│   ├── commands/      ← start · status · done · doctor
+│   ├── db/            ← SQLite WAL connection, schema, queries
+│   ├── services/      ← git · ports · env · sync · procs · doctor
+│   └── utils/         ← errors (exit codes) · logger · slug
+├── test/              ← 15 Vitest test suites, 55 tests
+└── docs/              ← SRS · System Design · Interview Guide
 ```
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
-# Run test suite
-npm test
-
-# Run tests in watch mode
-npm run test:watch
+npm test            # run all 55 tests across 15 suites
+npm run test:watch  # watch mode
 ```
 
 ---
 
-## 📄 License
-
-[MIT](file:///d:/Programming/Resume%20Projects/WokTide/LICENSE) © Harsh Vats
+<p align="center">
+  MIT License · <a href="https://github.com/dev-harshvats">Harsh Vats</a><br>
+  <a href="docs/DESIGN.md">System Design</a> · <a href="docs/learning/interview-guide.md">Interview Guide</a> · <a href="ROADMAP.md">Roadmap</a>
+</p>
