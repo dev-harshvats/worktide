@@ -36,6 +36,7 @@ export function createProgram() {
     .command('status')
     .description('List active worktrees, port allocations, and process liveness')
     .option('--json', 'Output results as JSON')
+    .option('-a, --all', 'List worktrees across all registered repositories')
     .action(async (options) => {
       try {
         await statusCommand(options);
