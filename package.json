@@ -7,9 +7,36 @@
   "bin": {
     "worktide": "./bin/worktide.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "git",
+    "worktree",
+    "cli",
+    "devtools",
+    "port-allocation",
+    "developer-experience",
+    "ai-agents",
+    "isolation",
+    "parallel-development"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dev-harshvats/worktide.git"
+  },
+  "homepage": "https://github.com/dev-harshvats/worktide#readme",
+  "bugs": {
+    "url": "https://github.com/dev-harshvats/worktide/issues"
+  },
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm test"
   },
   "engines": {
     "node": ">=18.0.0"
