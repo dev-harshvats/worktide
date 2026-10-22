@@ -26,11 +26,20 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# AI tool configuration and session files (Strict)
-CLAUDE.md
+# Local drafts, scratch, and launch
+launch/
+drafts/
+
+# Editor & IDE directories
+.vscode/
+.idea/
+*.sw[a-p]
+*.sw?
+*~
+
+# AI tool local session & cache directories (CLAUDE.md and AGENTS.md remain tracked)
 .claude/
 .cursor/
 .gemini/
-AGENTS.md
 .agents/
 .copilot/
