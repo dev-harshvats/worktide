@@ -113,7 +113,7 @@ export async function findNextAvailablePortRange(db, options = {}) {
  * @returns {Promise<{ portStart: number, portEnd: number, allocationId: number }>}
  */
 export async function allocatePortRange(db, worktreeId, options = {}) {
-  const maxRetries = options.maxRetries ?? 5;
+  const maxRetries = options.maxRetries ?? 25;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const { portStart, portEnd } = await findNextAvailablePortRange(db, options);
@@ -133,6 +133,8 @@ export async function allocatePortRange(db, worktreeId, options = {}) {
     } catch (err) {
       // If another process grabbed the exact same portStart concurrently
       if (err.message && err.message.includes('UNIQUE constraint failed')) {
+        // Jitter backoff to avoid thundering herd contention
+        await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 25) + 5));
         continue;
       }
       throw err;

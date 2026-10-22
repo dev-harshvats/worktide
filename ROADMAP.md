@@ -14,44 +14,53 @@ This document outlines the development phases, milestones, and upcoming capabili
 
 ---
 
-## 🟡 Phase 1: Database Registry & Port Allocator (In Progress)
+## 🟢 Phase 1: Database Registry & Port Allocator (Completed)
 
-- [ ] Implement SQLite connection manager with WAL mode and `PRAGMA foreign_keys = ON`
-- [ ] Schema migrations: `repos`, `worktrees`, and `port_allocations` tables
-- [ ] Implement collision-free port allocation algorithm with gap reuse (base port `3000`, 10 ports per block)
-- [ ] OS socket probe with `net.createServer` to verify port vacancy before reserving
-- [ ] Unit & integration tests for transactional concurrency and port isolation
-
----
-
-## 🟡 Phase 2: Worktree Provisioning (`worktide start`)
-
-- [ ] Git service using `execa`: repo root detection, branch slugification, worktree creation
-- [ ] Automatic dependency linking (symlinking root `node_modules` into worktree)
-- [ ] Environment file propagation (`.env*` copy)
-- [ ] Managed `.env.local` block injection (`PORT` & `PORT_END` delimited with markers)
-- [ ] Comprehensive atomic rollback on provisioning failure (reverse undo)
-- [ ] Idempotent re-runs handling
+- [x] Implement SQLite connection manager with WAL mode and `PRAGMA foreign_keys = ON`
+- [x] Schema migrations: `repos`, `worktrees`, and `port_allocations` tables
+- [x] Implement collision-free port allocation algorithm with gap reuse (base port `3000`, 10 ports per block)
+- [x] OS socket probe with `net.createServer` to verify port vacancy before reserving
+- [x] Unit & integration tests for transactional concurrency and port isolation
 
 ---
 
-## ⚪ Phase 3: Status & Teardown (`worktide status` & `worktide done`)
+## 🟢 Phase 2: Worktree Provisioning (`worktide start`) (Completed)
 
-- [ ] `worktide status` table reporting active worktrees, branches, ports, and socket liveness
-- [ ] `--json` flag support for automated scripting and tooling
-- [ ] Process inspection via `lsof` strictly scoped to allocated port ranges
-- [ ] Graceful termination sequence (`SIGTERM` followed by `SIGKILL` timeout)
-- [ ] Dirty git check preventing accidental loss of uncommitted work unless `--force` is supplied
-- [ ] Worktree removal and port deallocation in SQLite
+- [x] Git service using `execa`: repo root detection, branch slugification, worktree creation
+- [x] Automatic dependency linking (symlinking root `node_modules` into worktree)
+- [x] Environment file propagation (`.env*` copy)
+- [x] Managed `.env.local` block injection (`PORT` & `PORT_END` delimited with markers)
+- [x] Comprehensive atomic rollback on provisioning failure (reverse undo)
+- [x] Idempotent re-runs handling
 
 ---
 
-## ⚪ Phase 4: Self-Healing & Health Doctor (`worktide doctor`)
+## 🟢 Phase 3: Status & Teardown (`worktide status` & `worktide done`) (Completed)
 
-- [ ] Detect broken `node_modules` symlinks
-- [ ] Detect orphaned allocations (DB record present, but worktree deleted from disk)
-- [ ] Detect stale `.git/index.lock` files
-- [ ] `--fix` automated self-healing repair routines
+- [x] `worktide status` table reporting active worktrees, branches, ports, and socket liveness
+- [x] `--json` flag support for automated scripting and tooling
+- [x] Process inspection via `lsof` strictly scoped to allocated port ranges
+- [x] Graceful termination sequence (`SIGTERM` followed by `SIGKILL` timeout)
+- [x] Dirty git check preventing accidental loss of uncommitted work unless `--force` is supplied
+- [x] Worktree removal and port deallocation in SQLite
+
+---
+
+## 🟢 Phase 4: Self-Healing & Health Doctor (`worktide doctor`) (Completed)
+
+- [x] Detect broken `node_modules` symlinks
+- [x] Detect orphaned allocations (DB record present, but worktree deleted from disk)
+- [x] Detect stale `.git/index.lock` files
+- [x] `--fix` automated self-healing repair routines
+
+---
+
+## 🟢 Phase 5: Hardening & Concurrency Audit (Completed)
+
+- [x] Parallel concurrency stress tests (10 simultaneous worker allocations with zero collisions)
+- [x] Edge-case branch slugification and managed block corruption recovery
+- [x] Explicit POSIX exit codes verification across all domain errors
+- [x] Technical Interview and System Design Guide ([docs/learning/interview-guide.md](docs/learning/interview-guide.md))
 
 ---
 
