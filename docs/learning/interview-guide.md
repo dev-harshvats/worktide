@@ -74,3 +74,102 @@ This guide contains deep-dive architectural rationales, tradeoffs, and system de
   3. **Symlink Integrity:** Identifies broken `node_modules` symlinks pointing to moved or deleted checkouts.
   4. **Lock Contention:** Flags `.git/index.lock` files older than 60 seconds (abandoned by crashed Git commands).
 - Running `worktide doctor --fix` automatically cleans stale locks, prunes orphaned DB records, frees orphaned port blocks, and repairs symlinks.
+
+---
+
+## 6. Cross-Platform Filesystem Linkage: Windows Junctions vs. POSIX Symlinks
+
+### Question: "Why does standard symlinking fail on Windows without elevated administrator rights, and how did you engineer cross-platform dependency sharing?"
+- **The Problem on Windows:**
+  - On POSIX (Linux/macOS), creating directory symbolic links (`fs.symlink(target, path, 'dir')`) is an unprivileged operation.
+  - On Windows, standard directory symlinks require either **Windows Developer Mode** enabled in OS settings or an **Elevated Administrator PowerShell** session. Running unprivileged symlink commands throws `EPERM: operation not permitted`.
+- **The NTFS Junction Solution:**
+  - WorkTide dynamically selects the link type based on the operating system:
+    ```javascript
+    const type = process.platform === 'win32' ? 'junction' : 'dir';
+    await fs.promises.symlink(targetPath, linkPath, type);
+    ```
+  - An NTFS Junction is a filesystem reparse point pointing directly to a local folder directory.
+  - Junctions require **zero administrative privileges** and zero configuration on Windows machines.
+  - Junction resolution happens directly inside the NTFS filesystem driver, offering native folder performance with zero disk duplication and instant creation (<5ms).
+
+---
+
+## 7. Concurrency & Race Conditions in Autonomous Agent Workflows
+
+### Question: "If two autonomous AI coding agents run `worktide start` simultaneously on different branches, how does the system prevent port collisions and database locking errors?"
+- **The Problem:** In agentic workflows, multiple autonomous agents (e.g., Claude Code, Cursor, Auto-GPT) may trigger worktree provisioning at the exact same millisecond. Without synchronization:
+  - Both agents could read the same available port block (e.g. `3010–3019`) and assign it to different branches, causing server startup crashes (`EADDRINUSE`).
+  - Concurrent writes to the SQLite database would trigger `SQLITE_BUSY` exceptions.
+- **The Solution:**
+  1. **SQLite WAL Mode (`PRAGMA journal_mode = WAL`):** Enables non-blocking concurrent reads while write transactions are prepared.
+  2. **Exponential Busy Timeout (`PRAGMA busy_timeout = 5000`):** Instead of immediately crashing with `SQLITE_BUSY`, colliding write queries wait and retry exponentially for up to 5 seconds.
+  3. **Immediate Write Transactions (`BEGIN IMMEDIATE`):** The port allocation logic acquires the write reservation lock immediately at the start of the transaction, ensuring another process cannot read a stale gap calculation.
+  4. **Pre-Commit Socket Probing:** Candidate ports are actively probed with transient `net.createServer` TCP socket binds before the transaction commits.
+  - **Empirical Validation:** Hardened with automated concurrency stress tests (`test/concurrency.test.js`) where 10 concurrent asynchronous workers allocate ranges simultaneously with 0 collisions and 0 lock failures.
+
+---
+
+## 8. Safe Environment Variable Injection via Delimited Blocks
+
+### Question: "How does WorkTide safely inject dynamic port configurations into existing `.env` files without overwriting user secrets or corrupting formatting?"
+- **The Problem:** Worktrees must inject `PORT=3010` and `VITE_PORT=3010` so dev servers bind to their isolated port automatically. However, user `.env` files contain critical secrets (API keys, database URLs, auth tokens) that must never be destroyed or reformatted.
+- **The Solution: Delimited Managed Blocks:**
+  - WorkTide injects configuration encapsulated between explicit comment boundaries:
+    ```env
+    # >>> worktide managed >>>
+    PORT=3010
+    VITE_PORT=3010
+    PORT_START=3010
+    PORT_END=3019
+    # <<< worktide managed <<<
+    ```
+  - **Regex Boundary Parser:**
+    - Before writing, WorkTide searches for `# >>> worktide managed >>>[\s\S]*?# <<< worktide managed <<<`.
+    - If the block exists, WorkTide replaces **only** the contents between the delimiters using clean string substitution.
+    - If the block does not exist, it appends the block to the end of the file.
+  - **Zero Corruption Guarantee:** All user-defined keys, custom comments, and whitespace outside the delimiters are left 100% untouched.
+
+---
+
+## 9. Release Engineering, Security & Package Bloat Prevention
+
+### Question: "How do you design an npm package distribution pipeline to protect against supply chain vulnerabilities and bloated bundle sizes?"
+- **The Problem:** Many npm packages accidentally distribute hundreds of megabytes of test files, CI scripts, documentation, and local development configurations, slowing installation times and potentially leaking internal test credentials.
+- **The Engineering Solution:**
+  1. **Strict `files` Allowlist in `package.json`:**
+     - Rather than relying on `.npmignore` (which is opt-out and prone to omissions), WorkTide uses an explicit opt-in allowlist:
+       ```json
+       "files": [
+         "bin/",
+         "src/",
+         "README.md",
+         "LICENSE",
+         "CHANGELOG.md"
+       ]
+       ```
+     - Results in a package size of just **18.3 kB** (unpacked 62.6 kB across 22 files).
+  2. **Automated Quality Gate (`prepublishOnly`):**
+     - Configured `"prepublishOnly": "npm test"`.
+     - When `npm publish` is invoked, Vitest executes all 55 tests across 15 suites. If any test fails, the publish is immediately blocked by npm.
+  3. **Minimal Runtime Dependency Tree:**
+     - Only 3 runtime dependencies (`better-sqlite3`, `commander`, `execa`). Zero bloated sub-dependencies or unnecessary frameworks.
+
+---
+
+## 10. Architecture Tradeoffs: Git Worktrees vs Containers (Docker / Devcontainers)
+
+### Question: "When would an engineering team choose Git Worktrees over Docker containers or Devcontainers, and what are the system-level tradeoffs?"
+- **The Comparison:**
+  - **Docker / Devcontainers:** Provide full operating system virtualization, isolated network bridges, isolated filesystem mounts, and OS package management (apt/apk).
+  - **Git Worktrees (WorkTide):** Provide isolated Git branch working trees, isolated port blocks, and isolated environment configurations directly on the host OS.
+- **Tradeoffs:**
+  | Dimension | Docker / Devcontainers | Git Worktrees (WorkTide) |
+  | :--- | :--- | :--- |
+  | **Spin-Up Latency** | 30s to 5+ minutes (image build / pull / container start) | **< 500 milliseconds** (instant checkout + directory link) |
+  | **Disk Usage** | 2GB to 10GB+ per container image layer | **Zero duplication** (`node_modules` linked, shared `.git`) |
+  | **CPU & Memory Overhead** | High (Docker Desktop VM on Mac/Win, background dockerd) | **Zero** (runs native host binaries directly) |
+  | **IDE & Tooling Integration** | Requires remote SSH/Devcontainer extension bridge | **Native** (open folder in VS Code/Cursor directly, instant LSP) |
+  | **Isolation Boundary** | Full kernel & filesystem isolation | Working directory, ports, and environment isolation |
+- **When to Choose WorkTide:** For full-stack application development, rapid branch switching, microservice local development, and parallel AI coding agents where instant iteration speed, low resource consumption, and direct host toolchain integration are critical.
+
